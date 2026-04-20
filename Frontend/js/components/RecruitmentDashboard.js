@@ -2,12 +2,15 @@ import { store } from '../store.js';
 import SalaryOverview from './SalaryOverview.js';
 import CompactSelect from './CompactSelect.js';
 import CalendarField from './CalendarField.js?v=20260318-calendar-refresh-5';
+import AdaptiveTable from './AdaptiveTable.js';
+import { exportToExcel } from './ExcelExport.js';
 
 export default {
     components: {
         SalaryOverview,
         CompactSelect,
-        CalendarField
+        CalendarField,
+        AdaptiveTable
     },
     template: `
     <div class="crm-page">
@@ -78,12 +81,16 @@ export default {
                     </div>
                 </div>
             </div>
-            <div class="crm-search mb-3">
-                <i class="bi bi-search crm-search-icon"></i>
-                <input type="text" class="form-control crm-search-input" v-model="requirementSearch" placeholder="Search requirements by recruiter, company, location, profile, or status">
+            <div class="crm-search-row">
+                <div class="crm-search">
+                    <i class="bi bi-search crm-search-icon"></i>
+                    <input type="text" class="form-control crm-search-input" v-model="requirementSearch" placeholder="Search requirements by recruiter, company, location, profile, or status">
+                </div>
+                <span class="crm-search-count-badge">{{ searchedRequirements.length }} Records</span>
+                <button class="crm-export-btn" :disabled="searchedRequirements.length === 0" @click="exportRequirements"><i class="bi bi-file-earmark-spreadsheet"></i>Export Excel</button>
             </div>
             
-            <div class="table-responsive crm-table-wrap">
+            <adaptive-table title="Requirement Allocation Dashboard" :row-count="searchedRequirements.length">
                 <table class="table table-hover crm-table">
                     <thead>
                         <tr>
@@ -105,7 +112,7 @@ export default {
                             <td>{{ req.role_title }}</td>
                             <td>{{ req.positions_count }}</td>
                             <td>
-                                <a v-if="req.jd_file_path" :href="req.jd_file_path" target="_blank" class="btn btn-sm crm-action-btn crm-action-btn-outline"><i class="bi bi-file-earmark-text"></i> View</a>
+                                <a v-if="req.jd_file_path" :href="'/api/recruitment/uploads/' + req.jd_file_path" target="_blank" class="btn btn-sm crm-action-btn crm-action-btn-outline"><i class="bi bi-file-earmark-text"></i> View</a>
                                 <span v-else class="text-muted small">N/A</span>
                             </td>
                             <td>
@@ -153,7 +160,7 @@ export default {
                         </tr>
                     </tbody>
                 </table>
-            </div>
+            </adaptive-table>
         </div>
 
         <!-- Candidate Pool Tab -->
@@ -188,18 +195,21 @@ export default {
 
             <!-- Search Bar -->
             <div class="row mb-3">
-                <div class="col-md-6">
-                    <div class="crm-search">
-                        <i class="bi bi-search crm-search-icon"></i>
-                        <input type="text" class="form-control crm-search-input" placeholder="Search by name, email, phone, company, profile, location..."
-                               v-model="candidateSearch">
+                <div class="col-md-8">
+                    <div class="crm-search-row mb-0">
+                        <div class="crm-search">
+                            <i class="bi bi-search crm-search-icon"></i>
+                            <input type="text" class="form-control crm-search-input" placeholder="Search by name, email, phone, company, profile, location..."
+                                   v-model="candidateSearch">
+                        </div>
+                        <span class="crm-search-count-badge">{{ filteredCandidates.length }} Records</span>
+                        <button class="crm-export-btn" :disabled="filteredCandidates.length === 0" @click="exportCandidates"><i class="bi bi-file-earmark-spreadsheet"></i>Export Excel</button>
                     </div>
                 </div>
-                <div class="col-md-6 text-end d-flex align-items-center justify-content-end gap-2">
+                <div class="col-md-4 text-end d-flex align-items-center justify-content-end gap-2">
                     <button class="btn btn-sm btn-outline-secondary" @click="showFilters = !showFilters">
                         <i class="bi bi-funnel me-1"></i>{{ showFilters ? 'Hide Filters' : 'Show Filters' }}
                     </button>
-                    <span class="badge bg-secondary">{{ filteredCandidates.length }} candidate{{ filteredCandidates.length !== 1 ? 's' : '' }}</span>
                 </div>
             </div>
 
@@ -237,7 +247,10 @@ export default {
             </div>
 
             <!-- Candidate Table -->
-            <div class="table-responsive crm-table-wrap">
+            <adaptive-table
+                title="Talent Pool"
+                subtitle="Collapsed mode keeps the dataset, summary, and pagination together inside the visible module."
+                :row-count="filteredCandidates.length">
                 <table class="table table-hover crm-table align-middle" style="font-size: 0.88rem;">
                     <thead class="table-light">
                         <tr>
@@ -290,23 +303,26 @@ export default {
                         </tr>
                     </tbody>
                 </table>
-            </div>
+                <template #footer>
+                    <div v-if="totalPages > 1" class="crm-table-pagination-bar">
+                        <small class="crm-table-pagination-summary">Showing {{ pageStart + 1 }}-{{ pageEnd }} of {{ filteredCandidates.length }}</small>
+                        <nav class="crm-table-pagination-nav" aria-label="Candidate pool pagination">
+                            <ul class="pagination pagination-sm">
+                                <li class="page-item" :class="{ disabled: currentPage === 1 }">
+                                    <a class="page-link" href="#" @click.prevent="currentPage = currentPage - 1">&laquo;</a>
+                                </li>
+                                <li v-for="p in visiblePages" :key="p" class="page-item" :class="{ active: p === currentPage }">
+                                    <a class="page-link" href="#" @click.prevent="currentPage = p">{{ p }}</a>
+                                </li>
+                                <li class="page-item" :class="{ disabled: currentPage === totalPages }">
+                                    <a class="page-link" href="#" @click.prevent="currentPage = currentPage + 1">&raquo;</a>
+                                </li>
+                            </ul>
+                        </nav>
+                    </div>
+                </template>
+            </adaptive-table>
 
-            <!-- Pagination -->
-            <nav v-if="totalPages > 1" class="mt-3 d-flex justify-content-between align-items-center">
-                <small class="text-muted">Showing {{ pageStart + 1 }}–{{ pageEnd }} of {{ filteredCandidates.length }}</small>
-                <ul class="pagination pagination-sm mb-0">
-                    <li class="page-item" :class="{ disabled: currentPage === 1 }">
-                        <a class="page-link" href="#" @click.prevent="currentPage = currentPage - 1">&laquo;</a>
-                    </li>
-                    <li v-for="p in visiblePages" :key="p" class="page-item" :class="{ active: p === currentPage }">
-                        <a class="page-link" href="#" @click.prevent="currentPage = p">{{ p }}</a>
-                    </li>
-                    <li class="page-item" :class="{ disabled: currentPage === totalPages }">
-                        <a class="page-link" href="#" @click.prevent="currentPage = currentPage + 1">&raquo;</a>
-                    </li>
-                </ul>
-            </nav>
         </div>
 
         <div v-if="currentTab === 'pipeline'">
@@ -315,13 +331,14 @@ export default {
                     <h4 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Hiring Pipeline</h4>
                     <p class="text-muted mb-0 mt-1">Candidates move here after they are assigned to a specific client and role.</p>
                 </div>
-                <div class="d-flex align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
                     <input type="text" class="form-control form-control-sm" style="width: 320px;" v-model="pipelineSearch" placeholder="Search by candidate, client, role, recruiter, location...">
-                    <span class="badge bg-secondary">{{ filteredPipelineCandidates.length }} in pipeline</span>
+                    <span class="crm-search-count-badge">{{ filteredPipelineCandidates.length }} Records</span>
+                    <button class="crm-export-btn" :disabled="filteredPipelineCandidates.length === 0" @click="exportPipeline"><i class="bi bi-file-earmark-spreadsheet"></i>Export Excel</button>
                 </div>
             </div>
 
-            <div class="table-responsive crm-table-wrap">
+            <adaptive-table title="Hiring Pipeline" :row-count="filteredPipelineCandidates.length">
                 <table class="table table-hover crm-table align-middle">
                     <thead>
                         <tr>
@@ -384,7 +401,7 @@ export default {
                         </tr>
                     </tbody>
                 </table>
-            </div>
+            </adaptive-table>
         </div>
 
         <!-- Daily Logs Tab -->
@@ -416,11 +433,15 @@ export default {
                 </div>
             </div>
 
-            <div class="table-responsive crm-table-wrap">
+            <adaptive-table title="Daily Activity Log" :row-count="filteredDailyLogs.length">
                 <div class="p-3 pb-0">
-                    <div class="crm-search">
-                        <i class="bi bi-search crm-search-icon"></i>
-                        <input type="text" class="form-control crm-search-input" v-model="dailyLogSearch" placeholder="Search daily logs by date, recruiter, counts, or comments">
+                    <div class="crm-search-row mb-0">
+                        <div class="crm-search">
+                            <i class="bi bi-search crm-search-icon"></i>
+                            <input type="text" class="form-control crm-search-input" v-model="dailyLogSearch" placeholder="Search daily logs by date, recruiter, counts, or comments">
+                        </div>
+                        <span class="crm-search-count-badge">{{ filteredDailyLogs.length }} Records</span>
+                        <button class="crm-export-btn" :disabled="filteredDailyLogs.length === 0" @click="exportDailyLogs"><i class="bi bi-file-earmark-spreadsheet"></i>Export Excel</button>
                     </div>
                 </div>
                 <table class="table table-hover crm-table">
@@ -446,7 +467,7 @@ export default {
                         </tr>
                     </tbody>
                 </table>
-            </div>
+            </adaptive-table>
         </div>
 
         <div v-if="currentTab === 'reports'">
@@ -494,11 +515,15 @@ export default {
 
             <div class="mb-4">
                 <h5 class="crm-section-title mb-3">Daily Client / Position Status</h5>
-                <div class="crm-search mb-3">
-                    <i class="bi bi-search crm-search-icon"></i>
-                    <input type="text" class="form-control crm-search-input" v-model="reportRequirementSearch" placeholder="Search by recruiter, client, position, location, or status">
+                <div class="crm-search-row">
+                    <div class="crm-search">
+                        <i class="bi bi-search crm-search-icon"></i>
+                        <input type="text" class="form-control crm-search-input" v-model="reportRequirementSearch" placeholder="Search by recruiter, client, position, location, or status">
+                    </div>
+                    <span class="crm-search-count-badge">{{ filteredRequirementReports.length }} Records</span>
+                    <button class="crm-export-btn" :disabled="filteredRequirementReports.length === 0" @click="exportRequirementReports"><i class="bi bi-file-earmark-spreadsheet"></i>Export Excel</button>
                 </div>
-                <div class="table-responsive crm-table-wrap">
+                <adaptive-table title="Daily Client / Position Status" :row-count="filteredRequirementReports.length">
                     <table class="table table-hover crm-table">
                         <thead>
                             <tr>
@@ -540,17 +565,20 @@ export default {
                             </tr>
                         </tbody>
                     </table>
-                </div>
+                </adaptive-table>
             </div>
 
             <div>
                 <h5 class="crm-section-title mb-2">Recruiter Performance</h5>
-                <p class="crm-inline-note mb-3">Activity days come from Daily Activity logs. Sourced, shared, shortlisted, interviewed, selected, and rejected come from actual CRM candidate actions.</p>
-                <div class="crm-search mb-3">
-                    <i class="bi bi-search crm-search-icon"></i>
-                    <input type="text" class="form-control crm-search-input" v-model="reportRecruiterSearch" placeholder="Search recruiter performance by name or metrics">
+                <div class="crm-search-row">
+                    <div class="crm-search">
+                        <i class="bi bi-search crm-search-icon"></i>
+                        <input type="text" class="form-control crm-search-input" v-model="reportRecruiterSearch" placeholder="Search recruiter performance by name or metrics">
+                    </div>
+                    <span class="crm-search-count-badge">{{ filteredRecruiterReports.length }} Records</span>
+                    <button class="crm-export-btn" :disabled="filteredRecruiterReports.length === 0" @click="exportRecruiterReports"><i class="bi bi-file-earmark-spreadsheet"></i>Export Excel</button>
                 </div>
-                <div class="table-responsive crm-table-wrap">
+                <adaptive-table title="Recruiter Performance" :row-count="filteredRecruiterReports.length">
                     <table class="table table-hover crm-table">
                         <thead>
                             <tr>
@@ -588,7 +616,7 @@ export default {
                             </tr>
                         </tbody>
                     </table>
-                </div>
+                </adaptive-table>
             </div>
         </div>
 
@@ -1513,6 +1541,109 @@ export default {
                 'bg-primary': label === 'Profiles Shared',
                 'bg-secondary': label === 'Open' || label === 'Closed' || label === 'On Hold'
             };
+        },
+        exportRequirements() {
+            exportToExcel({
+                data: this.searchedRequirements,
+                columns: [
+                    { header: 'Recruiter Name', field: 'recruiter_name' },
+                    { header: 'Company', field: 'client_company' },
+                    { header: 'Location', field: 'location' },
+                    { header: 'Profile Name', field: 'role_title' },
+                    { header: 'No. of Positions', field: 'positions_count' },
+                    { header: 'Status', field: 'status' }
+                ],
+                fileName: 'job-requirements'
+            });
+        },
+        exportCandidates() {
+            exportToExcel({
+                data: this.filteredCandidates,
+                columns: [
+                    { header: 'Name', accessor: r => r.name || '-' },
+                    { header: 'Profile', accessor: r => r.profile_name || '-' },
+                    { header: 'Company', accessor: r => r.company_name || '-' },
+                    { header: 'Location', accessor: r => r.location || '-' },
+                    { header: 'Email', accessor: r => r.email || '-' },
+                    { header: 'Contact', accessor: r => r.phone || '-' },
+                    { header: 'Total Experience', accessor: r => r.total_experience != null ? r.total_experience + 'y' : '-' },
+                    { header: 'Relevant Experience', accessor: r => r.relevant_experience != null ? r.relevant_experience + 'y' : '-' },
+                    { header: 'Current CTC', accessor: r => r.current_ctc != null ? r.current_ctc + ' LPA' : '-' },
+                    { header: 'Expected CTC', accessor: r => r.expected_ctc != null ? r.expected_ctc + ' LPA' : '-' },
+                    { header: 'Notice Period', accessor: r => r.notice_period || '-' },
+                    { header: 'Status', field: 'status' }
+                ],
+                fileName: 'talent-pool'
+            });
+        },
+        exportPipeline() {
+            exportToExcel({
+                data: this.filteredPipelineCandidates,
+                columns: [
+                    { header: 'Candidate', accessor: r => r.name || '-' },
+                    { header: 'Email', accessor: r => r.email || '-' },
+                    { header: 'Phone', accessor: r => r.phone || '-' },
+                    { header: 'Client', accessor: r => r.job_client_company || '-' },
+                    { header: 'Position', accessor: r => r.job_role || '-' },
+                    { header: 'Location', accessor: r => r.job_location || r.location || '-' },
+                    { header: 'Recruiter', accessor: r => r.assigned_recruiter_name || '-' },
+                    { header: 'Stage', field: 'status' }
+                ],
+                fileName: 'hiring-pipeline'
+            });
+        },
+        exportDailyLogs() {
+            exportToExcel({
+                data: this.filteredDailyLogs,
+                columns: [
+                    { header: 'Date', field: 'date' },
+                    { header: 'Recruiter', field: 'recruiter_name' },
+                    { header: 'Profiles Sourced', field: 'profiles_sourced' },
+                    { header: 'Profiles Shared', field: 'profiles_shared' },
+                    { header: 'Comments', field: 'comments' }
+                ],
+                fileName: 'daily-activity-log'
+            });
+        },
+        exportRequirementReports() {
+            exportToExcel({
+                data: this.filteredRequirementReports,
+                columns: [
+                    { header: 'Date', field: 'date' },
+                    { header: 'Recruiter', field: 'recruiter_name' },
+                    { header: 'Client', field: 'client_company' },
+                    { header: 'Position', field: 'role_title' },
+                    { header: 'Location', field: 'location' },
+                    { header: 'Openings', field: 'positions_count' },
+                    { header: 'Profiles Shared', field: 'profiles_shared' },
+                    { header: 'Shortlisted', field: 'shortlisted' },
+                    { header: 'Interviewed', field: 'interviewed' },
+                    { header: 'Selected', field: 'selected' },
+                    { header: 'Rejected', field: 'rejected' },
+                    { header: 'Current Status', accessor: r => this.getRequirementStatusLabel(r) }
+                ],
+                fileName: 'client-position-status'
+            });
+        },
+        exportRecruiterReports() {
+            exportToExcel({
+                data: this.filteredRecruiterReports,
+                columns: [
+                    { header: 'Recruiter', field: 'recruiter_name' },
+                    { header: 'Activity Days', accessor: r => r.stats.activity_days },
+                    { header: 'Sourced', accessor: r => r.stats.sourced },
+                    { header: 'Shared', accessor: r => r.stats.shared },
+                    { header: 'Closed', accessor: r => r.stats.closed },
+                    { header: 'Shortlisted', accessor: r => r.stats.shortlisted },
+                    { header: 'Interviewed', accessor: r => r.stats.interviewed },
+                    { header: 'Selected', accessor: r => r.stats.selected },
+                    { header: 'Rejected', accessor: r => r.stats.rejected },
+                    { header: 'Share Rate', accessor: r => r.stats.sourced ? Math.round((r.stats.shared / r.stats.sourced) * 100) + '%' : '0%' },
+                    { header: 'Close Rate', accessor: r => r.stats.shared ? Math.round((r.stats.closed / r.stats.shared) * 100) + '%' : '0%' },
+                    { header: 'Selection Rate', accessor: r => r.stats.shared ? Math.round((r.stats.selected / r.stats.shared) * 100) + '%' : '0%' }
+                ],
+                fileName: 'recruiter-performance'
+            });
         }
     }
 };

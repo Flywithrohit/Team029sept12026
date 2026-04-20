@@ -155,7 +155,7 @@ export default {
     computed: {
         logoUrl() {
             if (this.logoMissing) return '';
-            return window.MockAssets?.getLogoDataUrl() || '';
+            return '/uploads/Logo/EduITalent%20Logo.png';
         }
     }
 };

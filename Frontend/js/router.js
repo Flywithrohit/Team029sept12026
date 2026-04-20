@@ -27,6 +27,7 @@ const routes = [
             { path: 'admin', component: AdminDashboard },
             { path: 'profile', component: Profile },
             { path: 'profile/:id', component: Profile },
+            
         ]
     }
 ];

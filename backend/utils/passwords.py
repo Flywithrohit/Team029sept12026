@@ -1,6 +1,6 @@
 import re
 
-
+# Block common weak passwords for better security
 COMMON_WEAK_PASSWORDS = {
     'password', 'password1', 'password1!', 'password123', 'password123!',
     '12345678', '123456789', '1234567890', '12345678!', 'qwerty123',
@@ -14,10 +14,11 @@ COMMON_WEAK_PASSWORDS = {
     'letmein1!', 'superman1', 'batman123', 'access123', 'hello123!',
 }
 
-
+# Enforce basic password complexity rules
 def validate_password(password, username='', email=''):
     errors = []
 
+    # Check for basic length and mixed character types
     if not password or len(password) < 8:
         errors.append('Password must be at least 8 characters long')
     if not re.search(r'[A-Z]', password or ''):
@@ -29,6 +30,7 @@ def validate_password(password, username='', email=''):
     if not re.search(r'[!@#$%^&*()_+\-=\[\]{}|;:\'",.<>?/`~\\]', password or ''):
         errors.append('Password must contain at least 1 special character')
 
+    # Prevent using obvious personal info in password
     if username and username.lower() in (password or '').lower():
         errors.append('Password must not contain your username')
     if email:
@@ -36,6 +38,7 @@ def validate_password(password, username='', email=''):
         if len(email_local) >= 3 and email_local in (password or '').lower():
             errors.append('Password must not contain your email')
 
+    # Check against blacklist of common passwords
     if (password or '').lower() in COMMON_WEAK_PASSWORDS:
         errors.append('This password is too common. Please choose a stronger password')
 
