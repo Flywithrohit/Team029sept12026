@@ -1,119 +1,96 @@
-# Small Business Operations Platform (Frontend - Milestone 2)
+# CRM Application
 
-## Overview
+This project is a Flask-based CRM with a built-in frontend. The backend serves the API and the frontend from the same app.
 
-This is the frontend part of our Small Business Operations Platform project.
+## What It Covers
+- User management
+- Attendance and leave tracking
+- Salary records
+- Recruitment requirements and candidate tracking
+- Sales leads and follow-ups
 
-For this milestone, the focus was on building the UI and showing how the system will work from a user’s perspective. The application includes different dashboards and flows for roles like admin, employee, recruiter, and sales.
+## Requirements
+- Python 3.9 or newer
+- Windows for `start.bat`, or any environment that can run Python directly
 
-Everything runs in the browser, so no backend setup is required.
+## Project Structure
+- `backend/` contains the Flask app, models, routes, and requirements
+- `frontend/` contains the UI that Flask serves as static files
+- `run.py` is the main entry point for local development
+- `start.bat` sets up the virtual environment, installs dependencies, and starts the app on Windows
 
----
+## Quick Start
+1. Open a terminal in the project root.
+2. On Windows, run:
 
-## What’s Included
-
-* Login and registration pages
-* Role-based dashboards (Admin, Manager, Employee, Recruitment, Sales)
-* Profile section
-* Employee features (attendance, salary, leaves)
-* Recruitment module (requirements, candidates, logs)
-* Sales module (leads, follow-ups, stats)
-
-All pages are connected and navigation works across the app.
-
----
-
-## How to Run
-
-### Recommended way
-
-Open terminal in the project folder and run:
-
-```id="d08a4n"
-python -m http.server 5500
+```cmd
+start.bat
 ```
 
-Now open:
+This script will:
+- create `venv` if it does not exist
+- activate the virtual environment
+- install packages from `backend/requirements.txt`
+- start the app with `python run.py`
 
-```id="bb2b9n"
-http://localhost:5500/frontend/index.html
+## Manual Start
+If you prefer to run it yourself:
+
+```bash
+python -m venv venv
+venv\Scripts\activate
+pip install -r backend/requirements.txt
+python run.py
 ```
 
-Important:
-If you open only `http://localhost:5500`, you will see a file list.
-Make sure to open the file inside the **frontend folder**.
+## Default URL
+After startup, open:
 
----
-
-### Alternative (may not work in some browsers)
-
-You can try opening:
-
-```id="ntdx2i"
-frontend/index.html
+```text
+http://127.0.0.1:5000
 ```
 
-But some browsers block JavaScript modules when opened directly.
+## Default Admin Login
+On startup, the app creates the default admin user if it does not already exist.
 
----
+- Username: `admin`
+- Password: `admin123`
 
-## Demo Login Credentials
+## Useful Commands
+Start the app:
 
-* admin / Admin@123
-* manager / Manager@123
-* employee / Employee@123
-* recruiter / Recruiter@123
-* sales / Sales@123
-
----
-
-## Mock API (How data works)
-
-There is no real backend connected in this milestone.
-
-All API calls are handled inside:
-
-```id="plsfyq"
-frontend/js/mockApi.js
+```bash
+python run.py
 ```
 
-* Axios intercepts requests and returns mock responses
-* No real network calls are made
-* Data is stored in browser `localStorage`
-* This helps simulate real application behavior
+Seed the default admin user:
 
----
-
-## Folder Structure
-
-```id="u6t26c"
-project-root/
-├── frontend/
-│   ├── index.html
-│   ├── js/
-│   │   ├── app.js
-│   │   ├── router.js
-│   │   ├── store.js
-│   │   ├── mockApi.js
-│   │   └── components/
-│
-├── README.md
+```bash
+python run.py seed
 ```
 
----
+Reset the default admin password back to `admin123`:
+
+```bash
+python run.py seed --reset-password
+```
+
+## Database Notes
+- The app uses SQLite by default
+- The default database is `crm.db`
+- Tables are created automatically on startup
+- A couple of older SQLite columns are patched automatically during app startup for compatibility
+
+If you want to use a different database, set `DATABASE_URL` in your environment before starting the app.
+
+## Environment Settings
+The app reads these values from the environment and falls back to local defaults if they are not set:
+
+- `SECRET_KEY`
+- `JWT_SECRET_KEY`
+- `DATABASE_URL`
 
 ## Notes
-
-* This is a frontend-only submission for Milestone 2
-* Backend is intentionally not included
-* The focus is on UI design, navigation, and structure
-* Backend integration will be done in later milestones
-
----
-
-## Future Work
-
-* Connect with backend APIs
-* Add database integration
-* Improve validations and error handling
-* Enhance role-based access control
+- The frontend is served by Flask from the `frontend/` folder
+- Uploaded files are stored under `backend/uploads/`
+- Browser caching is disabled in the app so frontend changes show up immediately during development

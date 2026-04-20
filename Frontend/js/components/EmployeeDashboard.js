@@ -2,12 +2,15 @@ import { store } from '../store.js';
 import SalaryOverview from './SalaryOverview.js';
 import CompactSelect from './CompactSelect.js';
 import CalendarField from './CalendarField.js?v=20260318-calendar-refresh-5';
+import AdaptiveTable from './AdaptiveTable.js';
+import { exportToExcel } from './ExcelExport.js';
 
 export default {
     components: {
         SalaryOverview,
         CompactSelect,
-        CalendarField
+        CalendarField,
+        AdaptiveTable
     },
     template: `
     <div class="crm-page">
@@ -70,11 +73,15 @@ export default {
                 <h5 class="crm-section-title">Recent Attendance</h5>
             </div>
             <div class="crm-card-body">
-                <div class="crm-search mb-3">
-                    <i class="bi bi-search crm-search-icon"></i>
-                    <input type="text" class="form-control crm-search-input" v-model="attendanceSearch" placeholder="Search by date, time, hours, or status">
+                <div class="crm-search-row">
+                    <div class="crm-search">
+                        <i class="bi bi-search crm-search-icon"></i>
+                        <input type="text" class="form-control crm-search-input" v-model="attendanceSearch" placeholder="Search by date, time, hours, or status">
+                    </div>
+                    <span class="crm-search-count-badge">{{ filteredAttendanceHistory.length }} Records</span>
+                    <button class="crm-export-btn" :disabled="filteredAttendanceHistory.length === 0" @click="exportAttendance"><i class="bi bi-file-earmark-spreadsheet"></i>Export Excel</button>
                 </div>
-                <div class="table-responsive crm-table-wrap">
+                <adaptive-table title="Recent Attendance" :row-count="filteredAttendanceHistory.length">
                     <table class="table table-hover crm-table">
                         <thead>
                             <tr>
@@ -98,7 +105,7 @@ export default {
                             </tr>
                         </tbody>
                     </table>
-                </div>
+                </adaptive-table>
             </div>
         </div>
 
@@ -108,11 +115,15 @@ export default {
                 <h5 class="crm-section-title">Leave History</h5>
             </div>
             <div class="crm-card-body">
-                <div class="crm-search mb-3">
-                    <i class="bi bi-search crm-search-icon"></i>
-                    <input type="text" class="form-control crm-search-input" v-model="leaveSearch" placeholder="Search by type, reason, date, or status">
+                <div class="crm-search-row">
+                    <div class="crm-search">
+                        <i class="bi bi-search crm-search-icon"></i>
+                        <input type="text" class="form-control crm-search-input" v-model="leaveSearch" placeholder="Search by type, reason, date, or status">
+                    </div>
+                    <span class="crm-search-count-badge">{{ filteredLeaveHistory.length }} Records</span>
+                    <button class="crm-export-btn" :disabled="filteredLeaveHistory.length === 0" @click="exportLeaveHistory"><i class="bi bi-file-earmark-spreadsheet"></i>Export Excel</button>
                 </div>
-                <div class="table-responsive crm-table-wrap">
+                <adaptive-table title="Leave History" :row-count="filteredLeaveHistory.length">
                     <table class="table table-hover crm-table">
                         <thead>
                             <tr>
@@ -163,7 +174,7 @@ export default {
                             </tr>
                         </tbody>
                     </table>
-                </div>
+                </adaptive-table>
             </div>
         </div>
 
@@ -260,6 +271,7 @@ export default {
     },
     mounted() {
         this.fetchData();
+        // Poll for real-time updates every 5 seconds
         this.pollingInterval = setInterval(() => {
             this.fetchData();
         }, 5000);
@@ -272,22 +284,24 @@ export default {
     methods: {
         async fetchData() {
             try {
-                const ts = new Date().getTime(); 
+                const ts = new Date().getTime(); // Cache buster
 
-
+                // Fetch Attendance
                 const attRes = await axios.get('/api/employee/attendance?t=' + ts);
                 this.attendanceHistory = attRes.data;
 
+                // Find today's attendance
                 const d = new Date();
                 const today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
                 this.todayAttendance = this.attendanceHistory.find(a => a.date === today);
 
-
+                // Fetch Salary
                 const salRes = await axios.get('/api/employee/salary?t=' + ts);
                 if (salRes.data.length > 0) {
-                    this.salary = salRes.data[0];
+                    this.salary = salRes.data[0]; // Just showing the latest one for demo
                 }
 
+                // Fetch Leaves
                 const leaveRes = await axios.get('/api/employee/leaves?t=' + ts);
                 this.leaveHistory = leaveRes.data;
 
@@ -348,7 +362,7 @@ export default {
                 this.leaveSuccess = true;
                 this.leaveMsg = 'Leave applied successfully!';
                 this.leaveForm = { type: 'Casual Leave', day_type: 'Full Day', start_date: '', end_date: '', total_days: 0, reason: '' };
-                this.fetchData(); 
+                this.fetchData(); // Refresh table immediately
                 setTimeout(() => {
                     this.showLeaveModal = false;
                     this.leaveMsg = '';
@@ -362,6 +376,8 @@ export default {
         },
         formatTime(dateStr) {
             if (!dateStr) return '-';
+            // The backend returns times like '14:30:00'. 
+            // Parsing this directly as new Date() will fail as 'Invalid Date'.
             if (typeof dateStr === 'string' && dateStr.includes(':') && !dateStr.includes('T')) {
                 return dateStr;
             }
@@ -383,6 +399,37 @@ export default {
             if (role === 'Recruitment Executive') return 'Employee Control Center';
             if (role === 'Business Development Team') return 'Employee Control Center';
             return 'Employee Control Center';
+        },
+        exportAttendance() {
+            exportToExcel({
+                data: this.filteredAttendanceHistory,
+                columns: [
+                    { header: 'Date', field: 'date' },
+                    { header: 'Check In', accessor: r => this.formatTime(r.check_in) },
+                    { header: 'Check Out', accessor: r => this.formatTime(r.check_out) },
+                    { header: 'Hours', accessor: r => r.total_hours || '-' },
+                    { header: 'Status', field: 'status' }
+                ],
+                fileName: 'attendance-history'
+            });
+        },
+        exportLeaveHistory() {
+            exportToExcel({
+                data: this.filteredLeaveHistory,
+                columns: [
+                    { header: 'Type', field: 'type' },
+                    { header: 'Applied On', accessor: r => r.applied_at || '-' },
+                    { header: 'From', field: 'start_date' },
+                    { header: 'To', field: 'end_date' },
+                    { header: 'Session', accessor: r => r.day_type || 'Full Day' },
+                    { header: 'Days', field: 'total_days' },
+                    { header: 'Reason', field: 'reason' },
+                    { header: 'Status', field: 'status' },
+                    { header: 'Approved By', accessor: r => r.approved_by_name || '-' },
+                    { header: 'Actioned On', accessor: r => r.approved_at || '-' }
+                ],
+                fileName: 'leave-history'
+            });
         }
     },
     computed: {
@@ -412,6 +459,8 @@ export default {
             );
         },
         leaveBalance() {
+            // Assume total allowance is 20 days.
+            // Balance = 20 - sum of approved leave days.
             const totalAllowance = 20;
             let usedLeaves = 0;
             this.leaveHistory.forEach(leave => {

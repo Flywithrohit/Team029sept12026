@@ -7,12 +7,14 @@ from datetime import datetime
 
 sales_bp = Blueprint('sales', __name__)
 
+# List all leads in the sales funnel
 @sales_bp.route('/leads', methods=['GET'])
 @jwt_required()
 def get_leads():
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
     
+    # Owners see their own leads; management sees everything
     if user.role in ['Admin', 'Manager']:
         leads = SalesLead.query.order_by(SalesLead.created_at.desc()).all()
     else:
@@ -36,12 +38,14 @@ def get_leads():
         })
     return jsonify(result), 200
 
+# Onboard a new lead
 @sales_bp.route('/leads', methods=['POST'])
 @jwt_required()
 def create_lead():
     current_user_id = get_jwt_identity()
     data = request.get_json()
 
+    # Client name is mandatory
     if not data.get('client_company'):
         return jsonify({'message': 'Client company is required'}), 400
 
@@ -62,6 +66,7 @@ def create_lead():
     db.session.commit()
     return jsonify({'message': 'Sales lead created successfully', 'id': new_lead.id}), 201
 
+# Update lead details or transition status
 @sales_bp.route('/leads/<int:id>', methods=['PUT'])
 @jwt_required()
 def update_lead(id):
@@ -69,6 +74,7 @@ def update_lead(id):
     user = User.query.get(current_user_id)
     lead = SalesLead.query.get_or_404(id)
 
+    # Only owner or admin can edit
     if user.role not in ['Admin', 'Manager'] and lead.owner_id != int(current_user_id):
         return jsonify({'message': 'Permission denied'}), 403
 
@@ -92,7 +98,7 @@ def update_lead(id):
     db.session.commit()
     return jsonify({'message': 'Sales lead updated successfully'}), 200
 
-
+# Delete lead (admin only)
 @sales_bp.route('/leads/<int:id>', methods=['DELETE'])
 @role_required(['Admin'])
 def delete_lead(id):
@@ -101,6 +107,7 @@ def delete_lead(id):
     db.session.commit()
     return jsonify({'message': 'Sales lead deleted successfully'}), 200
 
+# Get follow-up logs for a specific lead
 @sales_bp.route('/leads/<int:id>/followups', methods=['GET'])
 @jwt_required()
 def get_followups(id):
@@ -116,12 +123,14 @@ def get_followups(id):
         })
     return jsonify(result), 200
 
+# Add a new scheduled follow-up
 @sales_bp.route('/leads/<int:id>/followups', methods=['POST'])
 @jwt_required()
 def add_followup(id):
     data = request.get_json()
     
     try:
+        # Standardize interaction time
         scheduled_at = datetime.strptime(data.get('scheduled_at'), '%Y-%m-%d %H:%M')
     except ValueError:
         return jsonify({'message': 'Invalid date format. Use YYYY-MM-DD HH:MM'}), 400
@@ -137,6 +146,7 @@ def add_followup(id):
     db.session.commit()
     return jsonify({'message': 'Follow-up scheduled successfully'}), 201
 
+# High level sales KPIs for management
 @sales_bp.route('/stats', methods=['GET'])
 @role_required(['Admin', 'Manager'])
 def get_stats():
@@ -147,11 +157,13 @@ def get_stats():
     for l in leads:
         status_counts[l.status] = status_counts.get(l.status, 0) + 1
         
+    # Tally how many leads each rep has managed
     lead_counts = {}
     for l in leads:
         name = l.owner.full_name if l.owner else 'Unknown'
         lead_counts[name] = lead_counts.get(name, 0) + 1
 
+    # Format leaderboard data
     employee_performance = [
         {'employee_name': name, 'lead_count': count}
         for name, count in sorted(lead_counts.items(), key=lambda item: item[1], reverse=True)

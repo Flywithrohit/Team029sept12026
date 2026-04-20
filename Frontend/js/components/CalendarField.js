@@ -56,39 +56,76 @@ export default {
                     @click.stop
                 >
                     <div class="crm-calendar-popover-head">
-                        <button type="button" class="crm-calendar-nav" @click="changeMonth(-1)">
+                        <button type="button" class="crm-calendar-nav" @click="handleHeaderNav(-1)">
                             <i class="bi bi-chevron-left"></i>
                         </button>
-                        <div class="crm-calendar-title">{{ monthLabel }}</div>
-                        <button type="button" class="crm-calendar-nav" @click="changeMonth(1)">
+                        <button type="button" class="crm-calendar-title-btn" @click="switchViewMode">
+                            {{ titleLabel }}
+                        </button>
+                        <button type="button" class="crm-calendar-nav" @click="handleHeaderNav(1)">
                             <i class="bi bi-chevron-right"></i>
                         </button>
                     </div>
 
-                    <div class="crm-calendar-weekdays">
-                        <span v-for="day in weekdays" :key="day">{{ day }}</span>
-                    </div>
+                    <!-- Days View -->
+                    <template v-if="viewMode === 'days'">
+                        <div class="crm-calendar-weekdays">
+                            <span v-for="day in weekdays" :key="day">{{ day }}</span>
+                        </div>
 
-                    <div class="crm-calendar-grid">
-                        <button
-                            v-for="day in calendarDays"
-                            :key="day.key"
-                            type="button"
-                            class="crm-calendar-day"
-                            :class="{
-                                'is-muted': !day.currentMonth,
-                                'is-selected': day.isSelected,
-                                'is-today': day.isToday,
-                                'is-disabled': day.disabled
-                            }"
-                            :disabled="day.disabled"
-                            @click="selectDay(day)"
-                        >
-                            {{ day.label }}
-                        </button>
-                    </div>
+                        <div class="crm-calendar-grid">
+                            <button
+                                v-for="day in calendarDays"
+                                :key="day.key"
+                                type="button"
+                                class="crm-calendar-day"
+                                :class="{
+                                    'is-muted': !day.currentMonth,
+                                    'is-selected': day.isSelected,
+                                    'is-today': day.isToday,
+                                    'is-disabled': day.disabled
+                                }"
+                                :disabled="day.disabled"
+                                @click="selectDay(day)"
+                            >
+                                {{ day.label }}
+                            </button>
+                        </div>
+                    </template>
 
-                    <div v-if="isDateTime" class="crm-calendar-time">
+                    <!-- Months View -->
+                    <template v-else-if="viewMode === 'months'">
+                        <div class="crm-calendar-selector-grid">
+                            <button
+                                v-for="(month, index) in months"
+                                :key="month"
+                                type="button"
+                                class="crm-calendar-selector-item"
+                                :class="{ 'is-active': viewDate.getMonth() === index }"
+                                @click="selectMonth(index)"
+                            >
+                                {{ month }}
+                            </button>
+                        </div>
+                    </template>
+
+                    <!-- Years View -->
+                    <template v-else-if="viewMode === 'years'">
+                        <div class="crm-calendar-selector-grid">
+                            <button
+                                v-for="year in yearsGrid"
+                                :key="year"
+                                type="button"
+                                class="crm-calendar-selector-item"
+                                :class="{ 'is-active': viewDate.getFullYear() === year }"
+                                @click="selectYear(year)"
+                            >
+                                {{ year }}
+                            </button>
+                        </div>
+                    </template>
+
+                    <div v-if="isDateTime && viewMode === 'days'" class="crm-calendar-time">
                         <div class="crm-calendar-time-group">
                             <label class="crm-calendar-time-label">Hour</label>
                             <div class="crm-calendar-time-stepper">
@@ -126,6 +163,8 @@ export default {
     data() {
         return {
             isOpen: false,
+            viewMode: 'days', // days, months, years
+            yearGridStart: 0,
             viewDate: this.parseModelValue(this.modelValue) || this.getMinDate() || new Date(),
             draftDate: this.parseModelValue(this.modelValue),
             draftHour: this.parseModelValue(this.modelValue)?.getHours?.() ?? 9,
@@ -141,11 +180,12 @@ export default {
         weekdays() {
             return ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
         },
-        hours() {
-            return Array.from({ length: 24 }, (_, index) => index);
+        months() {
+            return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         },
-        minutes() {
-            return Array.from({ length: 12 }, (_, index) => index * 5);
+        yearsGrid() {
+            const start = this.yearGridStart;
+            return Array.from({ length: 12 }, (_, i) => start + i);
         },
         displayValue() {
             if (!this.modelValue) {
@@ -167,7 +207,13 @@ export default {
                     year: 'numeric'
                 });
         },
-        monthLabel() {
+        titleLabel() {
+            if (this.viewMode === 'years') {
+                return `${this.yearGridStart} - ${this.yearGridStart + 11}`;
+            }
+            if (this.viewMode === 'months') {
+                return this.viewDate.getFullYear();
+            }
             return this.viewDate.toLocaleDateString('en-IN', {
                 month: 'long',
                 year: 'numeric'
@@ -235,7 +281,9 @@ export default {
         parseModelValue(value) {
             if (!value) return null;
             if (this.isDateTime) {
-                const [datePart, timePart = '00:00'] = value.split('T').length > 1 ? value.split('T') : value.split(' ');
+                const parts = value.split(/[T ]/);
+                const datePart = parts[0];
+                const timePart = parts[1] || '00:00';
                 if (!datePart) return null;
                 const [year, month, day] = datePart.split('-').map(Number);
                 const [hour, minute] = timePart.split(':').map(Number);
@@ -261,11 +309,39 @@ export default {
             if (this.disabled) return;
             this.isOpen = !this.isOpen;
             if (this.isOpen) {
+                this.viewMode = 'days';
                 if (this.draftDate) {
                     this.viewDate = new Date(this.draftDate);
                 }
                 this.$nextTick(this.updatePanelPosition);
             }
+        },
+        switchViewMode() {
+            if (this.viewMode === 'days') {
+                this.viewMode = 'months';
+            } else if (this.viewMode === 'months') {
+                this.viewMode = 'years';
+                this.yearGridStart = Math.floor(this.viewDate.getFullYear() / 12) * 12;
+            } else {
+                this.viewMode = 'days';
+            }
+        },
+        handleHeaderNav(direction) {
+            if (this.viewMode === 'days') {
+                this.viewDate = new Date(this.viewDate.getFullYear(), this.viewDate.getMonth() + direction, 1);
+            } else if (this.viewMode === 'months') {
+                this.viewDate = new Date(this.viewDate.getFullYear() + direction, this.viewDate.getMonth(), 1);
+            } else if (this.viewMode === 'years') {
+                this.yearGridStart += direction * 12;
+            }
+        },
+        selectMonth(index) {
+            this.viewDate = new Date(this.viewDate.getFullYear(), index, 1);
+            this.viewMode = 'days';
+        },
+        selectYear(year) {
+            this.viewDate = new Date(year, this.viewDate.getMonth(), 1);
+            this.viewMode = 'months';
         },
         handleDocumentClick(event) {
             const trigger = this.$refs.trigger;
@@ -312,9 +388,6 @@ export default {
                 zIndex: 2000
             };
         },
-        changeMonth(direction) {
-            this.viewDate = new Date(this.viewDate.getFullYear(), this.viewDate.getMonth() + direction, 1);
-        },
         selectDay(day) {
             if (day.disabled) return;
             const next = this.draftDate ? new Date(this.draftDate) : new Date(day.value);
@@ -341,7 +414,7 @@ export default {
             if (unit === 'hour') {
                 this.draftHour = (this.draftHour + amount + 24) % 24;
             } else {
-                const values = this.minutes;
+                const values = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
                 const currentIndex = values.indexOf(this.draftMinute);
                 const normalizedIndex = currentIndex === -1 ? 0 : currentIndex;
                 const nextIndex = (normalizedIndex + (amount > 0 ? 1 : -1) + values.length) % values.length;

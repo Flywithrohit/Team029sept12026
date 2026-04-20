@@ -1,6 +1,12 @@
 import { store } from '../store.js';
+import CompactSelect from './CompactSelect.js';
+import CalendarField from './CalendarField.js';
 
 export default {
+    components: {
+        CompactSelect,
+        CalendarField
+    },
     template: `
     <div class="crm-page">
         <div class="crm-page-header">
@@ -106,9 +112,13 @@ export default {
                             <div class="col-md-6">
                                 <label class="form-label text-muted small">System Role</label>
                                 <div class="input-group">
-                                    <select v-if="isEditMode && canEdit('role')" class="form-select" v-model="editData.role">
-                                        <option v-for="role in editableRoles" :key="role" :value="role">{{ role }}</option>
-                                    </select>
+                                    <compact-select
+                                        v-if="isEditMode && canEdit('role')"
+                                        v-model="editData.role"
+                                        :options="editableRoles"
+                                        placeholder="Select Role"
+                                        width="100%"
+                                    ></compact-select>
                                     <input v-else type="text" class="form-control bg-light" :value="profileData.role" readonly>
                                     <span class="input-group-text bg-light text-muted border-start-0" v-if="!isEditMode || !canEdit('role')"><i class="bi bi-lock-fill"></i></span>
                                 </div>
@@ -132,6 +142,13 @@ export default {
                                 </div>
                             </div>
                             <div class="col-md-6">
+                                <label class="form-label text-muted small">Designation</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" v-model="editData.designation" :readonly="!isEditMode || !canEdit('designation')" :class="{'bg-light': !isEditMode || !canEdit('designation')}" placeholder="e.g. HR Executive">
+                                    <span class="input-group-text bg-light text-muted border-start-0" v-if="!canEdit('designation')"><i class="bi bi-lock-fill"></i></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
                                 <label class="form-label text-muted small">Assigned Team</label>
                                 <div class="input-group">
                                     <input type="text" class="form-control" v-model="editData.assigned_team" :readonly="!isEditMode || !canEdit('assigned_team')" :class="{'bg-light': !isEditMode || !canEdit('assigned_team')}">
@@ -141,12 +158,13 @@ export default {
                             <div class="col-md-6">
                                 <label class="form-label text-muted small">Manager</label>
                                 <div class="input-group">
-                                    <select v-if="isEditMode && canEdit('assigned_manager_id')" class="form-select" v-model="editData.assigned_manager_id">
-                                        <option :value="null">None Assigned</option>
-                                        <option v-for="manager in managerOptions" :key="manager.id" :value="manager.id">
-                                            {{ manager.full_name || manager.username }}
-                                        </option>
-                                    </select>
+                                    <compact-select
+                                        v-if="isEditMode && canEdit('assigned_manager_id')"
+                                        v-model="editData.assigned_manager_id"
+                                        :options="managerSelectOptions"
+                                        placeholder="None Assigned"
+                                        width="100%"
+                                    ></compact-select>
                                     <input v-else type="text" class="form-control bg-light" :value="profileData.assigned_manager_name || 'None Assigned'" readonly>
                                     <span class="input-group-text bg-light text-muted border-start-0" v-if="!isEditMode || !canEdit('assigned_manager_id')"><i class="bi bi-lock-fill"></i></span>
                                 </div>
@@ -154,14 +172,62 @@ export default {
                             <div class="col-md-6">
                                 <label class="form-label text-muted small">Employee Status</label>
                                 <div class="input-group">
-                                    <select v-if="isEditMode && canEdit('employee_status')" class="form-select" v-model="editData.employee_status">
-                                        <option value="Active">Active</option>
-                                        <option value="On Leave">On Leave</option>
-                                        <option value="Terminated">Terminated</option>
-                                        <option value="Suspended">Suspended</option>
-                                    </select>
+                                    <compact-select
+                                        v-if="isEditMode && canEdit('employee_status')"
+                                        v-model="editData.employee_status"
+                                        :options="employeeStatusOptions"
+                                        placeholder="Select Status"
+                                        width="100%"
+                                    ></compact-select>
                                     <input v-else type="text" class="form-control bg-light" :value="profileData.employee_status || 'Active'" readonly>
                                     <span class="input-group-text bg-light text-muted border-start-0" v-if="!isEditMode || !canEdit('employee_status')"><i class="bi bi-lock-fill"></i></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted small">Branch Location</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" v-model="editData.branch_location" :readonly="!isEditMode || !canEdit('branch_location')" :class="{'bg-light': !isEditMode || !canEdit('branch_location')}" placeholder="e.g. Noida">
+                                    <span class="input-group-text bg-light text-muted border-start-0" v-if="!canEdit('branch_location')"><i class="bi bi-lock-fill"></i></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted small">Date of Joining</label>
+                                <div class="input-group">
+                                    <calendar-field
+                                        v-if="isEditMode && canEdit('join_date')"
+                                        v-model="editData.join_date"
+                                        type="date"
+                                        width="100%"
+                                    ></calendar-field>
+                                    <input v-else type="text" class="form-control bg-light" :value="profileData.join_date || '-'" readonly>
+                                    <span class="input-group-text bg-light text-muted border-start-0" v-if="!isEditMode || !canEdit('join_date')"><i class="bi bi-lock-fill"></i></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted small">Date of Birth</label>
+                                <div class="input-group">
+                                    <calendar-field
+                                        v-if="isEditMode && canEdit('date_of_birth')"
+                                        v-model="editData.date_of_birth"
+                                        type="date"
+                                        width="100%"
+                                    ></calendar-field>
+                                    <input v-else type="text" class="form-control bg-light" :value="profileData.date_of_birth || '-'" readonly>
+                                    <span class="input-group-text bg-light text-muted border-start-0" v-if="!isEditMode || !canEdit('date_of_birth')"><i class="bi bi-lock-fill"></i></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted small">PAN Number</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" v-model="editData.pan_number" :readonly="!isEditMode || !canEdit('pan_number')" :class="{'bg-light': !isEditMode || !canEdit('pan_number')}" placeholder="e.g. ABCPK1234X">
+                                    <span class="input-group-text bg-light text-muted border-start-0" v-if="!canEdit('pan_number')"><i class="bi bi-lock-fill"></i></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted small">Bank Account Number</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" v-model="editData.bank_account_number" :readonly="!isEditMode || !canEdit('bank_account_number')" :class="{'bg-light': !isEditMode || !canEdit('bank_account_number')}">
+                                    <span class="input-group-text bg-light text-muted border-start-0" v-if="!canEdit('bank_account_number')"><i class="bi bi-lock-fill"></i></span>
                                 </div>
                             </div>
                             <div class="col-12" v-if="canView('notes')">
@@ -305,6 +371,17 @@ export default {
         editableRoles() {
             return ['Admin', 'Manager', 'Employee', 'Recruitment Executive', 'Business Development Team'];
         },
+        managerSelectOptions() {
+            const options = this.managerOptions.map(m => ({
+                label: m.full_name || m.username,
+                value: m.id
+            }));
+            // Add a "None" option if it's currently null or if we want to allow unassigning
+            return [{ label: 'None Assigned', value: null }, ...options];
+        },
+        employeeStatusOptions() {
+            return ['Active', 'On Leave', 'Terminated', 'Suspended'];
+        },
         passwordChecks() {
             const pw = this.editData.password || '';
             return [
@@ -331,7 +408,7 @@ export default {
                 },
                 {
                     label: 'Employee ID',
-                    value: this.profileData.id ? `#${this.profileData.id}` : 'Pending',
+                    value: this.profileData.employee_id || 'Pending',
                     icon: 'bi bi-shield-check'
                 }
             ];
@@ -349,10 +426,8 @@ export default {
     },
     methods: {
         getProfilePictureUrl(path, name = 'User') {
-            if (!path || !String(path).startsWith('data:')) {
-                return window.MockAssets?.getAvatarDataUrl(name);
-            }
-            return path;
+            if (!path) return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=e9ecef&color=6c757d`;
+            return `${path}?t=${new Date().getTime()}`;
         },
         canEdit(field) {
             if (store.hasRole(['Admin'])) return true;
@@ -363,13 +438,14 @@ export default {
             }
 
             if (store.hasRole(['Manager'])) {
-                const managerEditable = ['department', 'assigned_team', 'employee_status', 'notes'];
+                const managerEditable = ['department', 'assigned_team', 'employee_status', 'notes', 'designation', 'pan_number', 'bank_account_number', 'branch_location', 'join_date', 'date_of_birth'];
                 return managerEditable.includes(field);
             }
 
             return false;
         },
         canView(field) {
+            // Some fields are only viewable by self, manager, or admin
             if (field === 'notes') return this.isSelf || store.hasRole(['Manager', 'Admin']);
             return true;
         },
@@ -382,6 +458,7 @@ export default {
                     headers: { 'Authorization': `Bearer ${store.token}` }
                 });
                 this.profileData = response.data;
+                // Pre-populate edit data so fields aren't empty in view mode
                 this.editData = { ...this.profileData };
                 this.loading = false;
             } catch (err) {
@@ -427,6 +504,7 @@ export default {
                 this.profileData.profile_picture = response.data.profile_picture;
                 this.editData.profile_picture = response.data.profile_picture;
 
+                // Fire a global event so other components (like navbar/sidebar) can react
                 window.dispatchEvent(new CustomEvent('profile-picture-updated', {
                     detail: { userId: this.profileData.id, newPic: response.data.profile_picture }
                 }));
@@ -448,7 +526,7 @@ export default {
         },
         cancelEdit() {
             this.isEditMode = false;
-            this.editData = { ...this.profileData }; 
+            this.editData = { ...this.profileData }; // Revert to saved data
             this.showCurrentPassword = false;
             this.showPassword = false;
             this.showConfirmPassword = false;
@@ -457,6 +535,7 @@ export default {
         async saveProfile() {
             try {
                 this.error = null;
+                // Clean up empty password before sending
                 if (!this.editData.password) {
                     delete this.editData.current_password;
                     delete this.editData.password;
@@ -480,6 +559,7 @@ export default {
                 this.showPassword = false;
                 this.showConfirmPassword = false;
 
+                // If editing self, update local storage and store
                 if (this.isSelf) {
                     const mergedUser = {
                         ...(store.user || {}),
